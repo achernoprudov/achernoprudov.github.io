@@ -44,10 +44,19 @@
             color: white;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
+
+        #timer-display {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            font-size: 20px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
         
         #speed-display {
             position: absolute;
-            top: 60px;
+            top: 100px;
             left: 20px;
             font-size: 18px;
             color: white;
@@ -155,6 +164,7 @@
 <body>
     <div id="game">
         <div id="score-display">Score: 0</div>
+        <div id="timer-display">Time: 0s</div>
         <div id="speed-display">Speed: 1x</div>
         <div id="clouds"></div>
         <div id="road"></div>
@@ -163,6 +173,7 @@
         <div id="game-over">
             <h2>Game Over!</h2>
             <p id="final-score">Your score: 0</p>
+            <p id="survival-time">Survival time: 0s</p>
             
             <h3>High Scores</h3>
             <table id="scoreboard">
@@ -171,6 +182,7 @@
                         <th>Rank</th>
                         <th>Name</th>
                         <th>Score</th>
+                        <th>Time</th>
                     </tr>
                 </thead>
                 <tbody id="scoreboard-body">
@@ -188,9 +200,11 @@
         const clouds = document.getElementById('clouds');
         const roadLine = document.getElementById('road-line');
         const scoreDisplay = document.getElementById('score-display');
+        const timerDisplay = document.getElementById('timer-display');
         const speedDisplay = document.getElementById('speed-display');
         const gameOverScreen = document.getElementById('game-over');
         const finalScoreDisplay = document.getElementById('final-score');
+        const survivalTimeDisplay = document.getElementById('survival-time');
         const scoreboardBody = document.getElementById('scoreboard-body');
         const restartBtn = document.getElementById('restart-btn');
 
@@ -198,18 +212,30 @@
         const playerNames = [
             "Dave", "Dani", "Marcus", 
         ];
+
+        const speedIncrement = 0.5;
+        const speedIncreaseTime = 10000;
         
         // Fake scores (will be randomized each game)
         let highScores = [];
         
         let score = 0;
         let speed = 1;
+        
         let isJumping = false;
         let isGameOver = false;
         let obstacleTimer;
         let collectibleTimer;
         let speedIncreaseTimer;
         let gameLoopInterval;
+        let scoreTimer;
+        let playerRank = 0;
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
 
         function generateHighScores() {
             // Clear previous scores
@@ -217,9 +243,13 @@
             
             // Generate random scores between 50 and 500
             for (const name of playerNames) {
+                const surviveTime = Math.floor(Math.random() * 180) + 20; // 20 to 200 seconds
+                const highScore = Math.floor(surviveTime * 10); // 10 points per second
+                
                 highScores.push({
                     name: name,
-                    score: Math.floor(Math.random() * 450) + 50
+                    score: highScore,
+                    time: surviveTime
                 });
             }
             
@@ -230,6 +260,7 @@
         function startGame() {
             // Reset game state
             score = 0;
+            gameTime = 0;
             speed = 1;
             isJumping = false;
             isGameOver = false;
@@ -243,9 +274,11 @@
             clearInterval(collectibleTimer);
             clearInterval(speedIncreaseTimer);
             clearInterval(gameLoopInterval);
+            clearInterval(scoreTimer);
             
             // Reset displays
             scoreDisplay.textContent = `Score: ${score}`;
+            timerDisplay.textContent = `Time: ${formatTime(gameTime)}`;
             speedDisplay.textContent = `Speed: ${speed}x`;
             gameOverScreen.style.display = 'none';
             
@@ -257,11 +290,37 @@
             startCollectibleGeneration();
             startSpeedIncrease();
             startGameLoop();
+            startScoreTimer();
             
             // Add some clouds to the background
             for (let i = 0; i < 5; i++) {
                 createCloud();
             }
+        }
+
+        function startScoreTimer() {
+            scoreTimer = setInterval(() => {
+                if (isGameOver) return;
+                
+                // Increment game time
+                gameTime++;
+                
+                // Update score (10 points per second)
+                score = gameTime * 10;
+                
+                // Update displays
+                speedDisplay.textContent = `Speed: ${speed}x`;
+                scoreDisplay.textContent = `Score: ${score}`;
+                timerDisplay.textContent = `Time: ${formatTime(gameTime)}`;
+                
+                // Every minute milestone, flash the timer
+                if (gameTime % 60 === 0) {
+                    timerDisplay.style.color = 'gold';
+                    setTimeout(() => {
+                        timerDisplay.style.color = 'white';
+                    }, 500);
+                }
+            }, 1000);
         }
         
         function startGameLoop() {
@@ -319,6 +378,7 @@
             const playerScore = {
                 name: "YOU",
                 score: score,
+                time: gameTime,
                 isPlayer: true
             };
             
@@ -346,6 +406,7 @@
                     <td>${index + 1}</td>
                     <td>${scoreData.name}</td>
                     <td>${scoreData.score}</td>
+                    <td>${formatTime(scoreData.time)}</td>
                 `;
                 
                 scoreboardBody.appendChild(row);
@@ -387,7 +448,7 @@
             speedIncreaseTimer = setInterval(() => {
                 if (isGameOver) return;
                 
-                speed += 0.2;
+                speed += speedIncrement;
                 speedDisplay.textContent = `Speed: ${speed.toFixed(1)}x`;
                 roadLine.style.animationDuration = `${1 / speed}s`;
                 
@@ -396,7 +457,7 @@
                 setTimeout(() => {
                     speedDisplay.style.color = 'white';
                 }, 500);
-            }, 30000);
+            }, speedIncreaseTime);
         }
         
         function createObstacle() {
@@ -438,7 +499,7 @@
                 if (isGameOver) return;
                 
                 const currentLeft = parseFloat(obstacle.style.left) || 100;
-                const newLeft = currentLeft - (2 * speed);
+                const newLeft = currentLeft - speed;
                 
                 if (newLeft < -10) {
                     obstacle.remove();
@@ -470,7 +531,7 @@
                 if (isGameOver) return;
                 
                 const currentLeft = parseFloat(collectible.style.left) || 100;
-                const newLeft = currentLeft - (2 * speed);
+                const newLeft = currentLeft - speed;
                 
                 if (newLeft < -10) {
                     collectible.remove();
@@ -542,6 +603,7 @@
         function endGame() {
             isGameOver = true;
             finalScoreDisplay.textContent = `Your score: ${score}`;
+            survivalTimeDisplay.textContent = `Survival time: ${formatTime(gameTime)}`;
             gameOverScreen.style.display = 'block';
 
             // Update the scoreboard with the player's score
@@ -552,6 +614,7 @@
             clearInterval(collectibleTimer);
             clearInterval(speedIncreaseTimer);
             clearInterval(gameLoopInterval);
+            clearInterval(scoreTimer);
         }
         
         // Event listeners
