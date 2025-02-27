@@ -215,12 +215,14 @@
 
         const speedIncrement = 0.5;
         const speedIncreaseTime = 10000;
+        const roadSpeedNumerator = 0.1;
+        const initialSpeed = 0.5;
         
         // Fake scores (will be randomized each game)
         let highScores = [];
         
         let score = 0;
-        let speed = 1;
+        let speed = initialSpeed;
         
         let isJumping = false;
         let isGameOver = false;
@@ -261,7 +263,7 @@
             // Reset game state
             score = 0;
             gameTime = 0;
-            speed = 1;
+            speed = initialSpeed;
             isJumping = false;
             isGameOver = false;
 
@@ -283,7 +285,7 @@
             gameOverScreen.style.display = 'none';
             
             // Set animation speed
-            roadLine.style.animationDuration = `${1 / speed}s`;
+            roadLine.style.animationDuration = `${roadSpeedNumerator / speed}s`;
             
             // Start game loops
             startObstacleGeneration();
@@ -450,7 +452,7 @@
                 
                 speed += speedIncrement;
                 speedDisplay.textContent = `Speed: ${speed.toFixed(1)}x`;
-                roadLine.style.animationDuration = `${1 / speed}s`;
+                roadLine.style.animationDuration = `${roadSpeedNumerator / speed}s`;
                 
                 // Highlight speed increase
                 speedDisplay.style.color = 'yellow';
@@ -605,6 +607,8 @@
             finalScoreDisplay.textContent = `Your score: ${score}`;
             survivalTimeDisplay.textContent = `Survival time: ${formatTime(gameTime)}`;
             gameOverScreen.style.display = 'block';
+
+            roadLine.style.animationDuration = '0s';
 
             // Update the scoreboard with the player's score
             updateScoreboard();
