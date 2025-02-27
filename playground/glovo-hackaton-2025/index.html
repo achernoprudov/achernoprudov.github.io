@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Scooter Rush</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+            overflow: hidden;
+        }
+        
+        #game-container {
+            width: 800px;
+            height: 400px;
+            margin: 20px auto;
+            position: relative;
+            overflow: hidden;
+            background-color: #87CEEB;
+            border: 4px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        #ground {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 80px;
+            background-color: #8B4513;
+        }
+        
+        #road {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 60px;
+            background-color: #555;
+        }
+        
+        #road-lines {
+            position: absolute;
+            bottom: 30px;
+            width: 100%;
+            height: 4px;
+        }
+        
+        .road-line {
+            position: absolute;
+            height: 4px;
+            width: 40px;
+            background-color: #fff;
+        }
+        
+        #player {
+            position: absolute;
+            width: 60px;
+            height: 70px;
+            bottom: 60px;
+            left: 100px;
+            transition: bottom 0.3s;
+        }
+        
+        .obstacle {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            bottom: 60px;
+            right: -40px;
+        }
+        
+        .collectible {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            right: -30px;
+            border-radius: 50%;
+        }
+        
+        #score-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 5px 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border-radius: 4px;
+            font-size: 18px;
+        }
+        
+        #speed-container {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border-radius: 4px;
+            font-size: 18px;
+        }
+        
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            visibility: hidden;
+            font-size: 24px;
+        }
+        
+        #leaderboard {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            width: 60%;
+            text-align: center;
+        }
+        
+        #leaderboard h3 {
+            margin-top: 0;
+        }
+        
+        #leaderboard-list {
+            list-style-type: none;
+            padding: 0;
+            text-align: left;
+        }
+        
+        #restart-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        
+        #restart-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="score-container">Score: <span id="score">0</span></div>
+        <div id="speed-container">Speed: <span id="speed">1x</span></div>
+        <div id="ground"></div>
+        <div id="road"></div>
+        <div id="road-lines"></div>
+        <div id="player">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 70">
+                <!-- Scooter wheel back -->
+                <circle cx="12" cy="55" r="10" fill="#333" />
+                <!-- Scooter body -->
+                <rect x="10" y="30" width="30" height="15" fill="#FF6347" rx="2" />
+                <!-- Scooter handlebar -->
+                <rect x="40" y="25" width="5" height="20" fill="#333" />
+                <!-- Scooter wheel front -->
+                <circle cx="45" cy="55" r="10" fill="#333" />
+                <!-- Delivery person -->
+                <circle cx="25" cy="15" r="10" fill="#FFD700" /> <!-- head -->
+                <rect x="15" y="25" width="20" height="15" fill="#1E90FF" /> <!-- body -->
+            </svg>
+        </div>
+        <div id="game-over">
+            <h2>GAME OVER</h2>
+            <p>Your Score: <span id="final-score">0</span></p>
+            <div id="leaderboard">
+                <h3>High Scores</h3>
+                <ul id="leaderboard-list"></ul>
+            </div>
+            <button id="restart-btn">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Game variables
+        let gameRunning = true;
+        let score = 0;
+        let speedMultiplier = 1;
+        let baseSpeed = 5;
+        let currentSpeed = baseSpeed;
+        let jumpHeight = 120;
+        let isJumping = false;
+        let roadPosition = 0;
+        let lineWidth = 40;
+        let lineGap = 80;
+        let lines = [];
+        
+        // DOM elements
+        const gameContainer = document.getElementById('game-container');
+        const player = document.getElementById('player');
+        const roadLines = document.getElementById('road-lines');
+        const scoreElement = document.getElementById('score');
+        const speedElement = document.getElementById('speed');
+        const gameOverScreen = document.getElementById('game-over');
+        const finalScoreElement = document.getElementById('final-score');
+        const leaderboardList = document.getElementById('leaderboard-list');
+        const restartBtn = document.getElementById('restart-btn');
+        
+        // Fake leaderboard data
+        const fakeScores = [
+            { name: "SpeedyDelivery", score: 1250 },
+            { name: "RoadRunner", score: 980 },
+            { name: "FastFoodie", score: 875 },
+            { name: "QuickPizza", score: 720 },
+            { name: "NoodleNinja", score: 650 }
+        ];
+        
+        // Create road lines
+        function createRoadLines() {
+            const containerWidth = gameContainer.clientWidth;
+            const linesCount = Math.ceil(containerWidth / (lineWidth + lineGap)) + 1;
+            
+            for (let i = 0; i < linesCount; i++) {
+                const line = document.createElement('div');
+                line.className = 'road-line';
+                line.style.left = (i * (lineWidth + lineGap)) + 'px';
+                roadLines.appendChild(line);
+                lines.push(line);
+            }
+        }
+        
+        // Update road lines position
+        function updateRoadLines() {
+            roadPosition -= currentSpeed;
+            
+            if (roadPosition <= -(lineWidth + lineGap)) {
+                roadPosition += (lineWidth + lineGap);
+            }
+            
+            for (let i = 0; i < lines.length; i++) {
+                lines[i].style.left = (i * (lineWidth + lineGap) + roadPosition) + 'px';
+            }
+        }
+        
+        // Create obstacle
+        function createObstacle() {
+            if (!gameRunning) return;
+            
+            const obstacle = document.createElement('div');
+            obstacle.className = 'obstacle';
+            
+            // Randomly choose obstacle type
+            const obstacleType = Math.floor(Math.random() * 3);
+            
+            let obstacleHTML;
+            if (obstacleType === 0) {
+                // Rock
+                obstacleHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+                        <path d="M5,30 Q10,10 20,20 Q30,15 35,30 Z" fill="#777" />
+                    </svg>
+                `;
+            } else if (obstacleType === 1) {
+                // Pothole
+                obstacleHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+                        <ellipse cx="20" cy="20" rx="18" ry="10" fill="#222" />
+                    </svg>
+                `;
+            } else {
+                // Traffic cone
+                obstacleHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+                        <rect x="15" y="30" width="10" height="3" fill="#333" />
+                        <polygon points="16,30 24,30 26,10 14,10" fill="#FF7F00" />
+                    </svg>
+                `;
+            }
+            
+            obstacle.innerHTML = obstacleHTML;
+            gameContainer.appendChild(obstacle);
+            
+            const moveObstacle = setInterval(() => {
+                const currentLeft = parseInt(obstacle.style.left || gameContainer.clientWidth);
+                if (currentLeft < -50) {
+                    clearInterval(moveObstacle);
+                    obstacle.remove();
+                } else {
+                    obstacle.style.left = (currentLeft - currentSpeed) + 'px';
+                    
+                    // Collision detection
+                    if (gameRunning && !isJumping && 
+                        currentLeft <= 160 && currentLeft >= 80) {
+                        gameOver();
+                        clearInterval(moveObstacle);
+                    }
+                }
+            }, 16);
+            
+            // Schedule next obstacle
+            const nextObstacleTime = Math.random() * 5000 + 5000; // 5-10 seconds
+            setTimeout(createObstacle, nextObstacleTime);
+        }
+        
+        // Create collectible
+        function createCollectible() {
+            if (!gameRunning) return;
+            
+            const collectible = document.createElement('div');
+            collectible.className = 'collectible';
+            
+            // Randomly choose collectible position (on road or above)
+            const isAboveRoad = Math.random() > 0.5;
+            const bottomPosition = isAboveRoad ? 100 + Math.random() * 100 : 60;
+            
+            collectible.style.bottom = bottomPosition + 'px';
+            
+            // Randomly choose collectible type
+            const collectibleType = Math.floor(Math.random() * 3);
+            
+            let collectibleHTML;
+            let collectibleValue;
+            
+            if (collectibleType === 0) {
+                // Coin
+                collectibleHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30">
+                        <circle cx="15" cy="15" r="13" fill="#FFD700" stroke="#B8860B" stroke-width="2" />
+                        <text x="15" y="20" font-size="14" text-anchor="middle" fill="#B8860B">$</text>
+                    </svg>
+                `;
+                collectibleValue = 10;
+            } else if (collectibleType === 1) {
+                // Star
+                collectibleHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30">
+                        <polygon points="15,2 19,10 28,11 21,17 23,26 15,22 7,26 9,17 2,11 11,10" fill="#FF4500" />
+                    </svg>
+                `;
+                collectibleValue = 20;
+            } else {
+                // Diamond
+                collectibleHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30">
+                        <polygon points="15,3 25,12 15,27 5,12" fill="#00BFFF" />
+                    </svg>
+                `;
+                collectibleValue = 30;
+            }
+            
+            collectible.innerHTML = collectibleHTML;
+            collectible.dataset.value = collectibleValue;
+            gameContainer.appendChild(collectible);
+            
+            const moveCollectible = setInterval(() => {
+                const currentLeft = parseInt(collectible.style.left || gameContainer.clientWidth);
+                if (currentLeft < -50) {
+                    clearInterval(moveCollectible);
+                    collectible.remove();
+                } else {
+                    collectible.style.left = (currentLeft - currentSpeed) + 'px';
+                    
+                    // Collection detection
+                    if (gameRunning && 
+                        currentLeft <= 160 && currentLeft >= 80 &&
+                        (isJumping === isAboveRoad || bottomPosition <= 120)) {
+                        
+                        score += parseInt(collectible.dataset.value);
+                        scoreElement.textContent = score;
+                        
+                        // Collection animation
+                        collectible.style.transform = 'scale(1.5)';
+                        collectible.style.opacity = 0;
+                        collectible.style.transition = 'all 0.3s';
+                        
+                        setTimeout(() => {
+                            collectible.remove();
+                        }, 300);
+                        
+                        clearInterval(moveCollectible);
+                    }
+                }
+            }, 16);
+            
+            // Schedule next collectible
+            const nextCollectibleTime = Math.random() * 6000 + 6000; // 6-12 seconds
+            setTimeout(createCollectible, nextCollectibleTime);
+        }
+        
+        // Handle jump
+        function jump() {
+            if (isJumping || !gameRunning) return;
+            
+            isJumping = true;
+            player.style.bottom = jumpHeight + 'px';
+            
+            setTimeout(() => {
+                player.style.bottom = '60px';
+                
+                setTimeout(() => {
+                    isJumping = false;
+                }, 300);
+            }, 500);
+        }
+        
+        // Increase game speed
+        function increaseSpeed() {
+            if (!gameRunning) return;
+            
+            speedMultiplier += 0.2;
+            currentSpeed = baseSpeed * speedMultiplier;
+            speedElement.textContent = speedMultiplier.toFixed(1) + 'x';
+            
+            // Schedule next speed increase
+            setTimeout(increaseSpeed, 30000);
+        }
+        
+        // Game over
+        function gameOver() {
+            gameRunning = false;
+            
+            // Show game over screen
+            gameOverScreen.style.visibility = 'visible';
+            finalScoreElement.textContent = score;
+            
+            // Update leaderboard
+            updateLeaderboard();
+        }
+        
+        // Update leaderboard
+        function updateLeaderboard() {
+            // Clear current leaderboard
+            leaderboardList.innerHTML = '';
+            
+            // Add player's score to fake scores
+            const allScores = [
+                ...fakeScores,
+                { name: "YOU", score: score }
+            ].sort((a, b) => b.score - a.score);
+            
+            // Display top 5 scores
+            const topScores = allScores.slice(0, 5);
+            topScores.forEach((entry, index) => {
+                const listItem = document.createElement('li');
+                listItem.textContent = `${index + 1}. ${entry.name}: ${entry.score}`;
+                
+                if (entry.name === "YOU") {
+                    listItem.style.fontWeight = 'bold';
+                    listItem.style.color = '#FFD700';
+                }
+                
+                leaderboardList.appendChild(listItem);
+            });
+        }
+        
+        // Restart game
+        function restartGame() {
+            score = 0;
+            speedMultiplier = 1;
+            currentSpeed = baseSpeed;
+            gameRunning = true;
+            
+            // Clear obstacles and collectibles
+            document.querySelectorAll('.obstacle, .collectible').forEach(el => el.remove());
+            
+            // Reset UI
+            scoreElement.textContent = '0';
+            speedElement.textContent = '1x';
+            gameOverScreen.style.visibility = 'hidden';
+            
+            // Start game
+            setTimeout(createObstacle, Math.random() * 2000 + 1000);
+            setTimeout(createCollectible, Math.random() * 3000 + 2000);
+            setTimeout(increaseSpeed, 30000);
+        }
+        
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                jump();
+            }
+        });
+        
+        gameContainer.addEventListener('click', () => {
+            if (gameRunning) {
+                jump();
+            }
+        });
+        
+        restartBtn.addEventListener('click', restartGame);
+        
+        // Initialize game
+        createRoadLines();
+        
+        // Game loop
+        function gameLoop() {
+            if (gameRunning) {
+                updateRoadLines();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Start game
+        gameLoop();
+        setTimeout(createObstacle, Math.random() * 2000 + 1000);
+        setTimeout(createCollectible, Math.random() * 3000 + 2000);
+        setTimeout(increaseSpeed, 30000);
+    </script>
+</body>
+</html>
