@@ -213,8 +213,8 @@
             "Dave", "Dani", "Marcus", 
         ];
 
-        const speedIncrement = 0.5;
-        const speedIncreaseTime = 10000;
+        const speedIncrement = 0.2;
+        const speedIncreaseTime = 5000;
         const roadSpeedNumerator = 0.1;
         const initialSpeed = 0.5;
         
@@ -281,15 +281,15 @@
             // Reset displays
             scoreDisplay.textContent = `Score: ${score}`;
             timerDisplay.textContent = `Time: ${formatTime(gameTime)}`;
-            speedDisplay.textContent = `Speed: ${speed}x`;
+            speedDisplay.textContent = `Speed: ${speed.toFixed(1)}x`;
             gameOverScreen.style.display = 'none';
             
             // Set animation speed
             roadLine.style.animationDuration = `${roadSpeedNumerator / speed}s`;
             
             // Start game loops
-            startObstacleGeneration();
-            startCollectibleGeneration();
+            startObstacleGeneration(1000 / speed);
+            startCollectibleGeneration(8000 / speed);
             startSpeedIncrease();
             startGameLoop();
             startScoreTimer();
@@ -311,7 +311,7 @@
                 score = gameTime * 10;
                 
                 // Update displays
-                speedDisplay.textContent = `Speed: ${speed}x`;
+                speedDisplay.textContent = `Speed: ${speed.toFixed(1)}x`;
                 scoreDisplay.textContent = `Score: ${score}`;
                 timerDisplay.textContent = `Time: ${formatTime(gameTime)}`;
                 
@@ -415,35 +415,28 @@
             });
         }
         
-        function startObstacleGeneration() {
+        function startObstacleGeneration(time) {
             obstacleTimer = setInterval(() => {
                 if (isGameOver) return;
                 createObstacle();
                 
-                // Random next obstacle time (5-10 seconds)
+                // Random next obstacle time (1-6 seconds)
                 clearInterval(obstacleTimer);
-                const nextTime = (Math.random() * 5000 + 5000) / speed;
-                obstacleTimer = setInterval(() => {
-                    if (isGameOver) return;
-                    createObstacle();
-                    
-                    clearInterval(obstacleTimer);
-                    const nextTime = (Math.random() * 5000 + 5000) / speed;
-                    obstacleTimer = setInterval(() => startObstacleGeneration(), nextTime);
-                }, nextTime);
-            }, 5000 / speed);
+                const nextTime = (Math.random() * 1000 + 300) / speed;
+                startObstacleGeneration(nextTime)
+            }, time);
         }
         
-        function startCollectibleGeneration() {
+        function startCollectibleGeneration(time) {
             collectibleTimer = setInterval(() => {
                 if (isGameOver) return;
                 createCollectible();
                 
                 // Random next collectible time (8-15 seconds)
                 clearInterval(collectibleTimer);
-                const nextTime = (Math.random() * 7000 + 8000) / speed;
-                collectibleTimer = setInterval(() => startCollectibleGeneration(), nextTime);
-            }, 8000 / speed);
+                const nextTime = (Math.random() * 7000 + 2000) / speed;
+                startCollectibleGeneration(time)
+            }, time);
         }
         
         function startSpeedIncrease() {
