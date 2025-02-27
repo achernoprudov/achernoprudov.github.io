@@ -61,16 +61,14 @@
             width: 60px;
             height: 80px;
             background-image: url('https://achernoprudov.github.io/playground/glovo-hackaton-2025/scooter.svg');
-            transition: bottom 0.1s;
+            transition: bottom 0.3s;
         }
         
         .obstacle {
             position: absolute;
-            bottom: 100px;
+            bottom: 80px;
             width: 40px;
             height: 40px;
-            background-color: #e74c3c;
-            border-radius: 5px;
         }
         
         .collectible {
@@ -93,6 +91,34 @@
             padding: 30px;
             border-radius: 10px;
             text-align: center;
+            min-width: 300px;
+        }
+        
+        #scoreboard {
+            margin-top: 20px;
+            width: 100%;
+            border-collapse: collapse;
+            color: white;
+        }
+        
+        #scoreboard th, #scoreboard td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #444;
+        }
+        
+        #scoreboard th {
+            background-color: #333;
+            color: gold;
+        }
+        
+        #scoreboard tr:nth-child(even) {
+            background-color: rgba(255,255,255,0.1);
+        }
+        
+        #scoreboard tr.player-score {
+            background-color: rgba(255,215,0,0.2);
+            font-weight: bold;
         }
         
         #restart-btn {
@@ -130,12 +156,28 @@
     <div id="game">
         <div id="score-display">Score: 0</div>
         <div id="speed-display">Speed: 1x</div>
+        <div id="clouds"></div>
         <div id="road"></div>
         <div id="road-line"></div>
         <div id="player"></div>
         <div id="game-over">
             <h2>Game Over!</h2>
             <p id="final-score">Your score: 0</p>
+            
+            <h3>High Scores</h3>
+            <table id="scoreboard">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Name</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody id="scoreboard-body">
+                    <!-- Scores will be inserted here -->
+                </tbody>
+            </table>
+            
             <button id="restart-btn">Play Again</button>
         </div>
     </div>
@@ -143,12 +185,22 @@
     <script>
         const game = document.getElementById('game');
         const player = document.getElementById('player');
+        const clouds = document.getElementById('clouds');
         const roadLine = document.getElementById('road-line');
         const scoreDisplay = document.getElementById('score-display');
         const speedDisplay = document.getElementById('speed-display');
         const gameOverScreen = document.getElementById('game-over');
         const finalScoreDisplay = document.getElementById('final-score');
+        const scoreboardBody = document.getElementById('scoreboard-body');
         const restartBtn = document.getElementById('restart-btn');
+
+        // Fake player names for the scoreboard
+        const playerNames = [
+            "Dave", "Dani", "Marcus", 
+        ];
+        
+        // Fake scores (will be randomized each game)
+        let highScores = [];
         
         let score = 0;
         let speed = 1;
@@ -158,6 +210,22 @@
         let collectibleTimer;
         let speedIncreaseTimer;
         let gameLoopInterval;
+
+        function generateHighScores() {
+            // Clear previous scores
+            highScores = [];
+            
+            // Generate random scores between 50 and 500
+            for (const name of playerNames) {
+                highScores.push({
+                    name: name,
+                    score: Math.floor(Math.random() * 450) + 50
+                });
+            }
+            
+            // Sort scores in descending order
+            highScores.sort((a, b) => b.score - a.score);
+        }
         
         function startGame() {
             // Reset game state
@@ -165,6 +233,9 @@
             speed = 1;
             isJumping = false;
             isGameOver = false;
+
+            // Generate new high scores for this game
+            generateHighScores();
             
             // Clear any existing elements and timers
             document.querySelectorAll('.obstacle, .collectible, .clouds').forEach(el => el.remove());
@@ -239,6 +310,47 @@
                 });
             }, 50);
         }
+
+        function updateScoreboard() {
+            // Clear the scoreboard
+            scoreboardBody.innerHTML = '';
+            
+            // Insert the player's score into the high scores array
+            const playerScore = {
+                name: "YOU",
+                score: score,
+                isPlayer: true
+            };
+            
+            // Create a combined array with player score
+            let allScores = [...highScores, playerScore];
+            
+            // Sort all scores
+            allScores.sort((a, b) => b.score - a.score);
+            
+            // Limit to top 10
+            allScores = allScores.slice(0, 10);
+            
+            // Find player's rank
+            playerRank = allScores.findIndex(s => s.isPlayer) + 1;
+            
+            // Populate the scoreboard
+            allScores.forEach((scoreData, index) => {
+                const row = document.createElement('tr');
+                
+                if (scoreData.isPlayer) {
+                    row.className = 'player-score';
+                }
+                
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${scoreData.name}</td>
+                    <td>${scoreData.score}</td>
+                `;
+                
+                scoreboardBody.appendChild(row);
+            });
+        }
         
         function startObstacleGeneration() {
             obstacleTimer = setInterval(() => {
@@ -291,6 +403,35 @@
             const obstacle = document.createElement('div');
             obstacle.className = 'obstacle';
             obstacle.style.left = '100%';
+
+            const obstacleType = Math.floor(Math.random() * 3);
+
+            let obstacleHTML;
+            if (obstacleType === 0) {
+                // Rock
+                obstacleHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+                        <path d="M5,30 Q10,10 20,20 Q30,15 35,30 Z" fill="#777" />
+                    </svg>
+                `;
+            } else if (obstacleType === 1) {
+                // Pothole
+                obstacleHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+                        <ellipse cx="20" cy="20" rx="18" ry="10" fill="#222" />
+                    </svg>
+                `;
+            } else {
+                // Traffic cone
+                obstacleHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+                        <rect x="15" y="30" width="10" height="3" fill="#333" />
+                        <polygon points="16,30 24,30 26,10 14,10" fill="#FF7F00" />
+                    </svg>
+                `;
+            }
+
+            obstacle.innerHTML = obstacleHTML;
             game.appendChild(obstacle);
             
             const moveObstacle = () => {
@@ -358,7 +499,7 @@
             cloud.style.left = `${Math.random() * 100}%`;
             cloud.style.top = `${Math.random() * 40}%`;
             
-            game.appendChild(cloud);
+            clouds.appendChild(cloud);
             
             const moveCloud = () => {
                 if (isGameOver) return;
@@ -402,6 +543,9 @@
             isGameOver = true;
             finalScoreDisplay.textContent = `Your score: ${score}`;
             gameOverScreen.style.display = 'block';
+
+            // Update the scoreboard with the player's score
+            updateScoreboard();
             
             // Clear all timers
             clearInterval(obstacleTimer);
