@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Rush</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background-color: #87CEEB;
+        }
+        
+        #game {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #road {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100px;
+            background-color: #555;
+        }
+        
+        #road-line {
+            position: absolute;
+            bottom: 50px;
+            width: 100%;
+            height: 5px;
+            background: repeating-linear-gradient(to right, white, white 50px, transparent 50px, transparent 100px);
+            animation: moveRoad 1s linear infinite;
+        }
+        
+        #score-display {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        #speed-display {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            font-size: 18px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        #player {
+            position: absolute;
+            bottom: 100px;
+            left: 20%;
+            width: 60px;
+            height: 80px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 80"><rect x="20" y="60" width="30" height="20" fill="%23ff6b6b"/><circle cx="15" cy="70" r="10" fill="%23333"/><circle cx="45" cy="70" r="10" fill="%23333"/><rect x="25" y="30" width="20" height="30" fill="%233498db"/><circle cx="35" cy="20" r="10" fill="%23f5f5f5"/><rect x="30" y="40" width="20" height="5" fill="%23f5f5f5"/></svg>');
+            transition: bottom 0.1s;
+        }
+        
+        .obstacle {
+            position: absolute;
+            bottom: 100px;
+            width: 40px;
+            height: 40px;
+            background-color: #e74c3c;
+            border-radius: 5px;
+        }
+        
+        .collectible {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: gold;
+            border-radius: 50%;
+            box-shadow: 0 0 10px gold;
+        }
+        
+        #game-over {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        #restart-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        #restart-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        @keyframes moveRoad {
+            0% {
+                background-position: 0 0;
+            }
+            100% {
+                background-position: -100px 0;
+            }
+        }
+        
+        .clouds {
+            position: absolute;
+            opacity: 0.8;
+            filter: blur(3px);
+        }
+    </style>
+</head>
+<body>
+    <div id="game">
+        <div id="score-display">Score: 0</div>
+        <div id="speed-display">Speed: 1x</div>
+        <div id="road"></div>
+        <div id="road-line"></div>
+        <div id="player"></div>
+        <div id="game-over">
+            <h2>Game Over!</h2>
+            <p id="final-score">Your score: 0</p>
+            <button id="restart-btn">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const game = document.getElementById('game');
+        const player = document.getElementById('player');
+        const roadLine = document.getElementById('road-line');
+        const scoreDisplay = document.getElementById('score-display');
+        const speedDisplay = document.getElementById('speed-display');
+        const gameOverScreen = document.getElementById('game-over');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const restartBtn = document.getElementById('restart-btn');
+        
+        let score = 0;
+        let speed = 1;
+        let isJumping = false;
+        let isGameOver = false;
+        let obstacleTimer;
+        let collectibleTimer;
+        let speedIncreaseTimer;
+        let gameLoopInterval;
+        
+        function startGame() {
+            // Reset game state
+            score = 0;
+            speed = 1;
+            isJumping = false;
+            isGameOver = false;
+            
+            // Clear any existing elements and timers
+            document.querySelectorAll('.obstacle, .collectible, .clouds').forEach(el => el.remove());
+            clearInterval(obstacleTimer);
+            clearInterval(collectibleTimer);
+            clearInterval(speedIncreaseTimer);
+            clearInterval(gameLoopInterval);
+            
+            // Reset displays
+            scoreDisplay.textContent = `Score: ${score}`;
+            speedDisplay.textContent = `Speed: ${speed}x`;
+            gameOverScreen.style.display = 'none';
+            
+            // Set animation speed
+            roadLine.style.animationDuration = `${1 / speed}s`;
+            
+            // Start game loops
+            startObstacleGeneration();
+            startCollectibleGeneration();
+            startSpeedIncrease();
+            startGameLoop();
+            
+            // Add some clouds to the background
+            for (let i = 0; i < 5; i++) {
+                createCloud();
+            }
+        }
+        
+        function startGameLoop() {
+            gameLoopInterval = setInterval(() => {
+                if (isGameOver) return;
+                
+                const obstacles = document.querySelectorAll('.obstacle');
+                const collectibles = document.querySelectorAll('.collectible');
+                
+                // Check for collisions with obstacles
+                obstacles.forEach(obstacle => {
+                    const playerRect = player.getBoundingClientRect();
+                    const obstacleRect = obstacle.getBoundingClientRect();
+                    
+                    if (
+                        playerRect.right > obstacleRect.left + 10 &&
+                        playerRect.left < obstacleRect.right - 10 &&
+                        playerRect.bottom > obstacleRect.top + 10 &&
+                        !isJumping
+                    ) {
+                        endGame();
+                    }
+                });
+                
+                // Check for collectible pickup
+                collectibles.forEach(collectible => {
+                    const playerRect = player.getBoundingClientRect();
+                    const collectibleRect = collectible.getBoundingClientRect();
+                    
+                    if (
+                        playerRect.right > collectibleRect.left &&
+                        playerRect.left < collectibleRect.right &&
+                        playerRect.top < collectibleRect.bottom &&
+                        playerRect.bottom > collectibleRect.top
+                    ) {
+                        score += 10;
+                        scoreDisplay.textContent = `Score: ${score}`;
+                        collectible.remove();
+                        
+                        // Flash score display to indicate points gained
+                        scoreDisplay.style.color = 'gold';
+                        setTimeout(() => {
+                            scoreDisplay.style.color = 'white';
+                        }, 300);
+                    }
+                });
+            }, 50);
+        }
+        
+        function startObstacleGeneration() {
+            obstacleTimer = setInterval(() => {
+                if (isGameOver) return;
+                createObstacle();
+                
+                // Random next obstacle time (5-10 seconds)
+                clearInterval(obstacleTimer);
+                const nextTime = (Math.random() * 5000 + 5000) / speed;
+                obstacleTimer = setInterval(() => {
+                    if (isGameOver) return;
+                    createObstacle();
+                    
+                    clearInterval(obstacleTimer);
+                    const nextTime = (Math.random() * 5000 + 5000) / speed;
+                    obstacleTimer = setInterval(() => startObstacleGeneration(), nextTime);
+                }, nextTime);
+            }, 5000 / speed);
+        }
+        
+        function startCollectibleGeneration() {
+            collectibleTimer = setInterval(() => {
+                if (isGameOver) return;
+                createCollectible();
+                
+                // Random next collectible time (8-15 seconds)
+                clearInterval(collectibleTimer);
+                const nextTime = (Math.random() * 7000 + 8000) / speed;
+                collectibleTimer = setInterval(() => startCollectibleGeneration(), nextTime);
+            }, 8000 / speed);
+        }
+        
+        function startSpeedIncrease() {
+            speedIncreaseTimer = setInterval(() => {
+                if (isGameOver) return;
+                
+                speed += 0.2;
+                speedDisplay.textContent = `Speed: ${speed.toFixed(1)}x`;
+                roadLine.style.animationDuration = `${1 / speed}s`;
+                
+                // Highlight speed increase
+                speedDisplay.style.color = 'yellow';
+                setTimeout(() => {
+                    speedDisplay.style.color = 'white';
+                }, 500);
+            }, 30000);
+        }
+        
+        function createObstacle() {
+            const obstacle = document.createElement('div');
+            obstacle.className = 'obstacle';
+            obstacle.style.left = '100%';
+            game.appendChild(obstacle);
+            
+            const moveObstacle = () => {
+                if (isGameOver) return;
+                
+                const currentLeft = parseFloat(obstacle.style.left) || 100;
+                const newLeft = currentLeft - (2 * speed);
+                
+                if (newLeft < -10) {
+                    obstacle.remove();
+                    return;
+                }
+                
+                obstacle.style.left = `${newLeft}%`;
+                requestAnimationFrame(moveObstacle);
+            };
+            
+            requestAnimationFrame(moveObstacle);
+        }
+        
+        function createCollectible() {
+            const collectible = document.createElement('div');
+            collectible.className = 'collectible';
+            
+            // Random position: on road or in the air
+            const isInAir = Math.random() > 0.5;
+            const bottomPosition = isInAir ? 
+                Math.random() * 150 + 150 : // In the air
+                100 + Math.random() * 30;  // On or slightly above the road
+            
+            collectible.style.left = '100%';
+            collectible.style.bottom = `${bottomPosition}px`;
+            game.appendChild(collectible);
+            
+            const moveCollectible = () => {
+                if (isGameOver) return;
+                
+                const currentLeft = parseFloat(collectible.style.left) || 100;
+                const newLeft = currentLeft - (2 * speed);
+                
+                if (newLeft < -10) {
+                    collectible.remove();
+                    return;
+                }
+                
+                collectible.style.left = `${newLeft}%`;
+                requestAnimationFrame(moveCollectible);
+            };
+            
+            requestAnimationFrame(moveCollectible);
+        }
+        
+        function createCloud() {
+            const cloud = document.createElement('div');
+            cloud.className = 'clouds';
+            
+            // Random cloud appearance
+            const size = Math.random() * 100 + 50;
+            cloud.style.width = `${size}px`;
+            cloud.style.height = `${size * 0.6}px`;
+            cloud.style.borderRadius = '50%';
+            cloud.style.backgroundColor = 'white';
+            
+            // Random position
+            cloud.style.left = `${Math.random() * 100}%`;
+            cloud.style.top = `${Math.random() * 40}%`;
+            
+            game.appendChild(cloud);
+            
+            const moveCloud = () => {
+                if (isGameOver) return;
+                
+                const currentLeft = parseFloat(cloud.style.left) || 100;
+                const newLeft = currentLeft - (0.05 * speed);
+                
+                if (newLeft < -20) {
+                    cloud.style.left = '110%';
+                    cloud.style.top = `${Math.random() * 40}%`;
+                } else {
+                    cloud.style.left = `${newLeft}%`;
+                }
+                
+                requestAnimationFrame(moveCloud);
+            };
+            
+            requestAnimationFrame(moveCloud);
+        }
+        
+        function jump() {
+            if (isJumping || isGameOver) return;
+            
+            isJumping = true;
+            
+            // Jump up
+            player.style.bottom = '250px';
+            
+            // Come back down
+            setTimeout(() => {
+                player.style.bottom = '100px';
+                
+                // Small delay to prevent multi-jumps
+                setTimeout(() => {
+                    isJumping = false;
+                }, 100);
+            }, 500);
+        }
+        
+        function endGame() {
+            isGameOver = true;
+            finalScoreDisplay.textContent = `Your score: ${score}`;
+            gameOverScreen.style.display = 'block';
+            
+            // Clear all timers
+            clearInterval(obstacleTimer);
+            clearInterval(collectibleTimer);
+            clearInterval(speedIncreaseTimer);
+            clearInterval(gameLoopInterval);
+        }
+        
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            if (e.key === ' ' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                jump();
+            }
+        });
+        
+        // Touch controls for mobile
+        document.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            jump();
+        });
+        
+        restartBtn.addEventListener('click', startGame);
+        
+        // Start the game when the page loads
+        window.onload = startGame;
+    </script>
+</body>
+</html>
